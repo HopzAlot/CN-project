@@ -1,0 +1,11 @@
+build/
+cmake-build-*/
+out/
+.vscode/
+.idea/
+*.o
+*.exe
+
+# runtime data of each peer (stored chunks, downloads)
+peer_data/
+shared_files/

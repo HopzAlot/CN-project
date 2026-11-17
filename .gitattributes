@@ -1,0 +1,3 @@
+# Linux and Windows line endings stop fighting each other
+* text=auto
+*.sh text eol=lf
