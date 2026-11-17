@@ -6,8 +6,8 @@ Start: 17 Nov 2026 (Day 1). Deadline: 30 Nov 2026 (13 days). Last day is spare t
 
 | Member | Module | Folder |
 |---|---|---|
-| Rehan | repo, CMake, common, protocol, transfer (download, failover), CLI/app | `common/` `protocol/` `transfer/` `app/` |
-| Hamdan | reliable UDP: ack, retransmit, window, streams | `transport/` |
+| Hamdan | repo, CMake, common, protocol, transfer (download, failover), CLI/app | `common/` `protocol/` `transfer/` `app/` |
+| Rehan | reliable UDP: ack, retransmit, window, streams | `transport/` |
 | Hamna | discovery, heartbeat, peer table, chat | `membership/` `chat/` |
 | Afaq | chunking, chunk store, placement, re-replication, join sync | `storage/` |
 
@@ -15,10 +15,10 @@ Everyone writes the report section for their own module and measures their own p
 
 | Member | Measurement for the report |
 |---|---|
-| Hamdan | goodput and retransmissions vs packet loss (0, 5, 10, 20 %) |
+| Rehan | goodput and retransmissions vs packet loss (0, 5, 10, 20 %) |
 | Hamna | join time, crash detection time, chat delivery under loss |
 | Afaq | storage per peer vs replication factor and number of peers |
-| Rehan | download time vs number of sources, failover time when a peer is killed |
+| Hamdan | download time vs number of sources, failover time when a peer is killed |
 
 ## Timeline
 
@@ -34,7 +34,7 @@ Everyone writes the report section for their own module and measures their own p
 
 ## Why this split works
 
-Modules meet only at small interfaces (the headers). Hamdan can test transport with a plain echo program, Afaq can test storage on files without a network, Hamna can test membership with fake packets. Nobody waits for another person after Day 2.
+Modules meet only at small interfaces (the headers). Rehan can test transport with a plain echo program, Afaq can test storage on files without a network, Hamna can test membership with fake packets. Nobody waits for another person after Day 2.
 
 ## Day 2 task for everyone
 
