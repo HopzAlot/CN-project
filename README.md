@@ -64,4 +64,8 @@ strange, delete `build/` and configure again. Never commit it.
 - docs/design.md       how the system works and why
 - docs/protocol.md     packet format and message sequences
 - docs/plan.md         who does what, day by day, git workflow
-- docs/conventions.md  code style and commenting rules
+- docs/conventions.md  code style, commenting rules, and the pull request workflow
+
+## Workflow in one line
+
+Pull `main`, make your own branch, commit daily, open a pull request when the task works. Nobody pushes to `main` directly.

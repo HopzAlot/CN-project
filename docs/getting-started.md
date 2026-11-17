@@ -27,9 +27,65 @@
     ... work, build, test ...
     git add <your files>
     git commit -m "module: what changed"
-    git push origin module/short-name
+    git push -u origin module/short-name
+    open a pull request into main on GitHub, ask a teammate to review
 
-Commit at least once a day, even if the task is half done. Merge to `main` only when it builds.
+Commit at least once a day, even if the task is half done. Never push to `main` directly. Full PR steps are in `docs/conventions.md`.
+
+## Git in plain words
+
+- **Commit**: saves a snapshot of your changes on your own computer. Nobody else sees it.
+- **Push**: uploads your commits to GitHub so others can see them.
+- **Branch**: your own copy of the code line. You break things there, not in `main`.
+- **Pull request (PR)**: asking the team to merge your branch into `main`.
+- **Rebase**: moving your commits on top of the newest `main`, so your branch is not based on old code.
+
+## How to work on a task, step by step
+
+### 1. Before you start
+
+- [ ] You are on `main`: `git checkout main`
+- [ ] It is up to date: `git pull origin main`
+- [ ] It builds: run the cmake build. If main is broken, tell the group before you start.
+- [ ] Make a branch named after the task: `git checkout -b transport/sliding-window`
+- [ ] Check with `git status` that you are on your branch, never on `main`.
+
+### 2. While you work
+
+- [ ] Touch only your own module folder. If you must change someone else's file or `constants.h` or `protocol.md`, tell them first.
+- [ ] Build often, after every small change, not once at the end.
+- [ ] Commit when a small piece works: `git add <the files you changed>` then `git commit -m "transport: add ack handling"`. Add files by name, not `git add .`, so you do not commit junk like `build/`.
+- [ ] Push at the end of every working day: `git push -u origin transport/sliding-window` (`-u` only the first time). This also backs up your work.
+- [ ] Follow `docs/conventions.md` for names and comments.
+
+### 3. Before you open the PR
+
+- [ ] Bring in the latest main: `git pull --rebase origin main`
+- [ ] If git reports a conflict: open the marked files, keep the correct lines, remove the `<<<<`, `====`, `>>>>` markers, then `git add <file>` and `git rebase --continue`. If lost, `git rebase --abort` puts everything back, then ask for help.
+- [ ] Build again and run your test again. It must still work on top of the new main.
+- [ ] Push again. After a rebase, use `git push --force-with-lease` (only on your own branch, never on `main`).
+- [ ] Read your own changes once: `git diff main`. Remove debug prints and stray files.
+
+### 4. Open the PR
+
+- [ ] On GitHub, press "Compare & pull request", target `main`.
+- [ ] Title like a commit message, e.g. `transport: sliding window and retransmit`.
+- [ ] Description, two or three lines: what it does, how you tested it.
+- [ ] Ask a teammate to review in the group chat. Do not wait silently.
+
+### 5. After review
+
+- [ ] If they ask for changes: fix on the same branch, commit, push. The PR updates by itself.
+- [ ] When approved, merge on GitHub and delete the branch.
+- [ ] Locally: `git checkout main` then `git pull origin main`, then start the next task from step 1.
+
+### Mistakes to avoid
+
+- Working directly on `main`. Check `git status` first.
+- Letting a branch live for a week. Short branches (1 to 2 days) rarely conflict.
+- Committing `build/`, `peer_data/` or big test files. They are in `.gitignore`, but check `git status` before committing.
+- Force pushing to `main`. Never.
+- Reviewing without building. Pull the branch and run it if the change is big.
 
 ## Checklists
 

@@ -37,8 +37,19 @@ Bad:
 ## Git
 
 - `main` always builds. Never push code that does not compile.
-- One branch per task: `module/short-name`, e.g. `transport/sliding-window`.
+- Nobody pushes directly to `main`. All work goes through a pull request (PR).
 - Small commits, at least one per working day. Message: `module: what changed`, e.g. `transport: add ack handling`.
-- Before pushing: `git pull --rebase origin main`.
-- Merge to `main` when the task works. Another member glances at it first.
 - Only edit another person's module after telling them.
+
+### Pull request flow
+
+1. Update main: `git checkout main` then `git pull origin main`.
+2. Make your branch: `git checkout -b module/short-name`, e.g. `transport/sliding-window`.
+3. Work and commit on your branch. Push it: `git push -u origin module/short-name`.
+4. Before opening the PR, bring in the latest main: `git pull --rebase origin main`. Build and test again.
+5. Open a PR on GitHub into `main`. Title like a commit message. In the description say what it does and how you tested it, in two or three lines.
+6. At least one other member reads it and approves. The owner of the touched module reviews if it is not the author.
+7. The author merges (Squash or Merge, either is fine, pick one and stay with it). Delete the branch.
+8. Everyone pulls `main` again before starting the next task.
+
+Keep PRs small, one task each, so reviews take minutes. Open a PR as soon as a task works, not at the end of the week.
