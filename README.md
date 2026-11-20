@@ -9,7 +9,8 @@ Linux / macOS:
 
     cmake -S . -B build
     cmake --build build
-    ./build/peer
+    ctest --test-dir build          runs every tests/test_*.cpp
+    ./build/peer --name alice --port 5001
 
 Windows (Visual Studio or MSYS2/MinGW, with CMake installed):
 
@@ -33,12 +34,13 @@ gets a working build.
     cmake -S . -B build        step 1: configure, reads CMakeLists.txt and writes build files into build/
     cmake --build build        step 2: compile, calls the real compiler and produces the peer program
 
-Our `CMakeLists.txt` does four things:
+Our `CMakeLists.txt` does five things:
 
 1. Sets C++17.
-2. Collects every `.cpp` under `src/` automatically, so adding a new file needs no CMake edit.
-3. Builds the `peer` program from `app/main.cpp` plus those files.
-4. Links the thread library, and `ws2_32` (Windows sockets) on Windows only.
+2. Collects every `.cpp` under `src/` automatically into one library, `p2p_core`, so adding a new file needs no CMake edit.
+3. Builds the `peer` program from `app/main.cpp` linked with that library.
+4. Builds every `tests/test_*.cpp` as its own small program and registers it with `ctest`. To add a test, just create `tests/test_<module>.cpp` with a `main` that returns 0 on success (see `tests/check.h`).
+5. Links the thread library, and `ws2_32` (Windows sockets) on Windows only.
 
 Everything generated goes into `build/`, which git ignores. If something acts
 strange, delete `build/` and configure again. Never commit it.
