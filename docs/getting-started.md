@@ -103,10 +103,10 @@ Tick these off as you go. Dates are from `docs/plan.md`.
 ### Hamdan: foundation, protocol, transfer, CLI (`app/`, `src/common/`, `src/protocol/`, `src/transfer/`)
 
 - [ ] Day 1: get the Windows build working. Fix `CMakeLists.txt` if needed.
-- [ ] Day 1-2: write `common/socket_compat.h/.cpp` (create, bind, sendto, recvfrom, close; Windows startup). Commit early, everyone needs it.
-- [ ] Day 2: write `protocol/packet.h/.cpp` (header struct, encode, decode) following `docs/protocol.md`. Run the freeze discussion for the protocol.
+- [x] Day 1-2: write `common/socket_compat.h/.cpp` (create, bind, sendto, recvfrom, close; Windows startup). Commit early, everyone needs it.
+- [x] Day 2: write `protocol/packet.h/.cpp` (header struct, encode, decode) following `docs/protocol.md`. Run the freeze discussion for the protocol.
 - [ ] Day 3-4: CLI loop in `app/main.cpp` (`--name`, `--port`, `--join`; commands chat, list, files, download, quit).
-- [ ] Day 5-6: download logic in `transfer/` that works on a local test chunk map: request chunks from several holders in parallel, check CRC32, retry.
+- [x] Day 5-6: download logic in `transfer/` that works on a local test chunk map: request chunks from several holders in parallel, check CRC32, retry.
 - [ ] Day 10-11: failover when a holder dies mid-download.
 - [ ] Day 12: measure download time vs number of sources and failover time. Write the report section.
 
