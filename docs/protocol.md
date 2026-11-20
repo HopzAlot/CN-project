@@ -2,7 +2,13 @@
 
 Status: draft. To be frozen on Day 2. After that, changes need all four members to agree.
 
-All integers are big endian (network byte order). Max datagram = 14 + 1024 bytes.
+All integers are big endian (network byte order). Max datagram = 14 + 1100 bytes (MAX_PAYLOAD = 1100).
+
+Strings are a u16 length followed by that many bytes (UTF-8, no terminating zero).
+Lists are a u16 count followed by the items.
+
+`sender_id` is a random u32 chosen at startup (0 is not allowed). If a JOIN arrives with an id
+already in the peer table from a different ip:port, the bootstrap rejects it and the new peer picks another.
 
 ## Header (14 bytes)
 
@@ -36,7 +42,19 @@ Packets with a wrong version or a length that does not match are dropped.
 | 0x0C | CHUNK_DATA | yes | file id, chunk index, fragment no, fragment count, chunk crc32, data |
 | 0x0D | CHUNK_ERR | yes | file id, chunk index (I do not have it) |
 
-Exact payload layouts are filled in when each module is written.
+Exact payload layouts are filled in when each module is written. Done so far (code in `src/protocol/`):
+
+| Message | Payload layout |
+|---|---|
+| FILE_ANNOUNCE | u32 file_id, str name, u64 size, u32 chunk_count, u32 file_crc32 |
+| CHUNK_REQUEST | u32 file_id, u32 chunk_index |
+| CHUNK_ERR | u32 file_id, u32 chunk_index |
+| HAVE | u32 file_id, u32 chunk_index |
+| CHUNK_DATA | u32 file_id, u32 chunk_index, u16 frag_no, u16 frag_count, u32 chunk_crc32, data (1..1024 bytes, rest of payload) |
+
+CHUNK_DATA has 16 bytes of fields before up to 1024 data bytes, so 1040 bytes total. That is why
+MAX_PAYLOAD is 1100 and not 1024. A full 16 KB chunk is 16 fragments; the last chunk of a file
+may be shorter and have fewer fragments. Fragment k carries bytes [k*1024, k*1024 + len) of the chunk.
 
 ## Reliability rules
 
