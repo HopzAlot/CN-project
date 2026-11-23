@@ -24,12 +24,14 @@ static bool read_all(const std::string& path, std::vector<char>& out) {
 
 int main() {
     const size_t SIZE = 2500000;
+    const char* in_path = "test_in.bin";
+    const char* out_path = "test_out.bin";
 
-    if (!write_test_file("build/test_in.bin", SIZE)) { printf("FAIL: write\n"); return 1; }
+    if (!write_test_file(in_path, SIZE)) { printf("FAIL: write\n"); return 1; }
 
     std::vector<std::vector<uint8_t>> chunks;
     uint64_t file_size = 0;
-    if (!split_file("build/test_in.bin", chunks, file_size)) { printf("FAIL: split\n"); return 1; }
+    if (!split_file(in_path, chunks, file_size)) { printf("FAIL: split\n"); return 1; }
 
     size_t expected = (SIZE + CHUNK_SIZE - 1) / CHUNK_SIZE;
     if (file_size != SIZE || chunks.size() != expected) {
@@ -38,13 +40,16 @@ int main() {
         return 1;
     }
 
-    if (!rebuild_file(chunks, "build/test_out.bin")) { printf("FAIL: rebuild\n"); return 1; }
+    if (!rebuild_file(chunks, out_path)) { printf("FAIL: rebuild\n"); return 1; }
 
     std::vector<char> a, b;
-    if (!read_all("build/test_in.bin", a) || !read_all("build/test_out.bin", b) || a != b) {
+    if (!read_all(in_path, a) || !read_all(out_path, b) || a != b) {
         printf("FAIL: files differ\n");
         return 1;
     }
+
+    std::remove(in_path);
+    std::remove(out_path);
 
     printf("PASS: %zu chunks, last chunk %zu bytes\n", chunks.size(), chunks.back().size());
     return 0;
