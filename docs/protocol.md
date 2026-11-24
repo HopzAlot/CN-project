@@ -99,7 +99,9 @@ CHUNK_STORE and CHUNK_DATA are the same layout, only the meaning differs: CHUNK_
 Seq numbers are per (peer, stream). If one side forgot a peer (timeout) and the other did not, the new seq 1 looks like an old duplicate and is dropped. So a JOIN always means a fresh start:
 
 - A peer that **sends** a JOIN to X wipes all its send and receive state for X (both streams) first, so its seq to X starts again at 1.
-- A peer that **receives** a JOIN from X wipes all its send and receive state for X (both streams) before processing the JOIN, whatever the JOIN's seq was.
+- A peer that **receives** a JOIN (seq 1) from X wipes all its send and receive state for X (both streams) before processing the JOIN.
+- Exception, a resend: a JOIN is resent when its ACK is lost, and the resend also has seq 1. A JOIN seq 1 from X that arrives less than `(MAX_RETRIES + 1) * RTO_MS` (2.2 s) after the last reset for X is a resend. It is only ACKed, not delivered again and not a reset. Wiping again would throw away the WELCOME and FILE_ANNOUNCEs still being sent to X, and X would wait for them forever.
+- A real rejoin after that time (for example after a 5 s timeout) is a new reset.
 
 The `sender_id` is not changed on rejoin, because chunk ownership (`ChunkMap`, HAVE) is tied to it.
 
@@ -153,3 +155,16 @@ Download of one chunk:
 Crash:
 
     no HEARTBEAT for 5 s -> peer removed from table -> chunks with < 2 holders re-replicated
+
+## Using the transport (rules for every module)
+
+The transport is `ReliableChannel` in `src/transport/reliable_channel.h`. The header codec (`encode_datagram`, `decode_datagram`, `Header`, `MSG_JOIN`, `MSG_ACK`) is in `src/protocol/header.h`. Do not write a second header codec. `protocol/packet.h` is for the payload encode/decode and the other message type codes, and should include `protocol/header.h` for the two it already defines.
+
+- Send with `send_reliable(ip, port, stream, type, payload)` for everything that must arrive: JOIN, WELCOME, LEAVE, CHAT, FILE_ANNOUNCE, HAVE, HAVE_MAP and all chunk messages. Use `send_unreliable` for HEARTBEAT and DISCOVER only. ACKs are sent by the transport, never by other modules.
+- JOIN is always sent with `send_reliable` on stream 0. That is what triggers the state reset above.
+- Per (peer, stream) at most WINDOW_SIZE (16) packets are in flight, the rest wait in a queue of SEND_QUEUE_LIMIT (4096). When `send_reliable` returns false the queue is full or the payload is over MAX_PAYLOAD. Slow down and try again, do not ignore it. The downloader must respect this.
+- Received messages arrive in `on_message`, always on the receiver thread, one at a time, in seq order per (sender, stream). Keep the handler short. It may call `send_*` itself, it must not block for long (no waiting for a download, no sleeping).
+- `on_unreachable(ip, port)` means 10 resends of one packet got no ACK. Membership should treat the peer as dead and call `forget_peer(ip, port)`. `forget_peer` must also be called whenever a peer is removed from the peer table, so its queues and seq numbers are dropped.
+- Packets whose `sender_id` is our own id are dropped, so our own DISCOVER broadcast does not come back to us.
+- The first JOIN to a bootstrap peer is sent to `ip:port` before its id is known. That is fine, the transport tracks the sender state by address and the receiver state by `sender_id`.
+- Message type codes that the transport itself reads: JOIN (reset rule) and ACK. All other types are passed up untouched.
