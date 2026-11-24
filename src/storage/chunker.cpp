@@ -1,6 +1,6 @@
 #include "storage/chunker.h"
 #include "common/constants.h"
-
+#include "common/crc32.h"
 #include <fstream>
 
 bool split_file(const std::string& path,
@@ -33,4 +33,14 @@ bool rebuild_file(const std::vector<std::vector<uint8_t>>& chunks,
                   static_cast<std::streamsize>(c.size()));
     }
     return static_cast<bool>(out);
+}
+
+uint32_t chunk_crc(const std::vector<uint8_t>& chunk) {
+    return crc32(chunk.data(), chunk.size());
+}
+
+uint32_t file_crc(const std::vector<std::vector<uint8_t>>& chunks) {
+    uint32_t crc = 0;
+    for (const auto& c : chunks) crc = crc32_update(crc, c.data(), c.size());
+    return crc;
 }

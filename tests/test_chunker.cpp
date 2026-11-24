@@ -1,6 +1,6 @@
 #include "storage/chunker.h"
 #include "common/constants.h"
-
+#include "common/crc32.h"
 #include <cstdio>
 #include <fstream>
 #include <iterator>
@@ -48,6 +48,21 @@ int main() {
         return 1;
     }
 
+        // the chunk checksums must agree with the checksum of the whole file
+    uint32_t whole = crc32(reinterpret_cast<const uint8_t*>(a.data()), a.size());
+    if (file_crc(chunks) != whole) { printf("FAIL: file crc\n"); return 1; }
+    if (chunk_crc(chunks[0]) != crc32(reinterpret_cast<const uint8_t*>(a.data()), CHUNK_SIZE)) {
+        printf("FAIL: chunk crc\n");
+        return 1;
+    }
+
+    // one flipped bit must change the checksum
+    std::vector<uint8_t> damaged = chunks[0];
+    damaged[100] ^= 1;
+    if (chunk_crc(damaged) == chunk_crc(chunks[0])) {
+        printf("FAIL: damaged chunk not detected\n");
+        return 1;
+    }
     std::remove(in_path);
     std::remove(out_path);
 
