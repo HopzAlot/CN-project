@@ -2,7 +2,13 @@
 
 Status: draft. To be frozen on Day 2. After that, changes need all four members to agree.
 
-All integers are big endian (network byte order). Max datagram = 14 + 1024 bytes.
+All integers are big endian (network byte order). Max payload = 1100 bytes (MAX_PAYLOAD), so a datagram is at most 14 + 1100 bytes. A payload never spans two packets.
+
+Strings are a u16 length followed by that many bytes (UTF-8, no terminating zero).
+Lists are a u16 count followed by the items.
+
+`sender_id` is a random u32 chosen at startup (0 is not allowed). If a JOIN arrives with an id
+already in the peer table from a different ip:port, the bootstrap rejects it and the new peer picks another.
 
 ## Header (14 bytes)
 
@@ -13,30 +19,69 @@ All integers are big endian (network byte order). Max datagram = 14 + 1024 bytes
 | 2 | 1 | stream | 0 = control and chat, 1 = file data |
 | 3 | 1 | flags | bit 0 = RELIABLE (receiver must ACK), others 0 |
 | 4 | 4 | sender_id | id of the sending peer |
-| 8 | 4 | seq | sequence number, counted per (receiver, stream) |
+| 8 | 4 | seq | sequence number, counted per (receiver, stream), starts at 1. Unreliable packets use 0 |
 | 12 | 2 | length | payload length in bytes |
 
 Packets with a wrong version or a length that does not match are dropped.
 
 ## Message types
 
-| Code | Name | Reliable | Payload |
-|---|---|---|---|
-| 0x01 | DISCOVER | no | name (broadcast, "who is out there") |
-| 0x02 | JOIN | yes | name, listen port |
-| 0x03 | WELCOME | yes | peer list, file list, chunk map |
-| 0x04 | HEARTBEAT | no | nothing |
-| 0x05 | LEAVE | yes | nothing |
-| 0x06 | CHAT | yes | text (private message adds target id) |
-| 0x07 | ACK | no | stream, acked seq |
-| 0x08 | FILE_ANNOUNCE | yes | file id, name, size, chunk count, file crc32 |
-| 0x09 | CHUNK_STORE | yes | file id, chunk index, data (owner pushes a chunk to a holder) |
-| 0x0A | HAVE | yes | file id, chunk index (peer says it now holds this chunk) |
-| 0x0B | CHUNK_REQUEST | yes | file id, chunk index |
-| 0x0C | CHUNK_DATA | yes | file id, chunk index, fragment no, fragment count, chunk crc32, data |
-| 0x0D | CHUNK_ERR | yes | file id, chunk index (I do not have it) |
+| Code | Name | Stream | Reliable | Meaning |
+|---|---|---|---|---|
+| 0x01 | DISCOVER | 0 | no | broadcast "who is out there" |
+| 0x02 | JOIN | 0 | yes | I want to join / I have joined |
+| 0x03 | WELCOME | 0 | yes | reply to JOIN: the peer list |
+| 0x04 | HEARTBEAT | 0 | no | I am alive |
+| 0x05 | LEAVE | 0 | yes | I am leaving |
+| 0x06 | CHAT | 0 | yes | chat text, to everyone or one peer |
+| 0x07 | ACK | same as the acked packet | no | I received packet n |
+| 0x08 | FILE_ANNOUNCE | 0 | yes | a file exists: name, size, chunk count, crc |
+| 0x09 | CHUNK_STORE | 1 | yes | keep this chunk (owner pushes a chunk to a holder) |
+| 0x0A | HAVE | 0 | yes | I now hold this chunk |
+| 0x0B | CHUNK_REQUEST | 1 | yes | send me this chunk |
+| 0x0C | CHUNK_DATA | 1 | yes | one fragment of a requested chunk |
+| 0x0D | CHUNK_ERR | 1 | yes | I do not have that chunk |
+| 0x0E | HAVE_MAP | 0 | yes | which chunks of a file a peer holds, as a bitmap |
 
-Exact payload layouts are filled in when each module is written.
+## Streams
+
+- Stream 0 carries everything small and urgent: membership, chat, file announcements, HAVE and HAVE_MAP.
+- Stream 1 carries only bulk chunk traffic: CHUNK_STORE, CHUNK_REQUEST, CHUNK_DATA, CHUNK_ERR.
+- Each (peer, stream) has its own seq numbers and its own window, so a running transfer cannot delay heartbeats, chat or HAVE.
+- An ACK is sent on the same stream as the packet it acknowledges.
+
+## Payload layouts
+
+| Message | Payload |
+|---|---|
+| DISCOVER | str name, u16 listen port |
+| JOIN | str name, u16 listen port |
+| WELCOME | u16 peer_count, then per peer: u32 id, str name, u32 IPv4, u16 port. Then u16 file_count (FILE_ANNOUNCEs that follow) |
+| HEARTBEAT | empty |
+| LEAVE | empty |
+| CHAT | u32 target_id (0 = everyone), str text (at most 1000 bytes) |
+| ACK | u32 acked seq |
+| FILE_ANNOUNCE | u32 file_id, str name, u64 size, u32 chunk_count, u32 file_crc32 |
+| HAVE, CHUNK_REQUEST, CHUNK_ERR | u32 file_id, u32 chunk_index |
+| CHUNK_STORE, CHUNK_DATA | u32 file_id, u32 chunk_index, u16 frag_no, u16 frag_count, u32 chunk_crc32, data (1 to 1024 bytes, the rest of the payload) |
+| HAVE_MAP | u32 file_id, u32 peer_id, bitmap |
+
+The peer's IP in JOIN and DISCOVER is not sent, the receiver uses the address the packet came from.
+
+HAVE_MAP bitmap: `ceil(chunk_count / 8)` bytes, `chunk_count` comes from the FILE_ANNOUNCE of that file.
+Chunk `i` is bit `7 - (i % 8)` of byte `i / 8` (chunk 0 is the top bit of byte 0). Unused bits are 0.
+A set bit means the peer holds that chunk. FILE_ANNOUNCE is always sent before HAVE_MAP, and both are on stream 0, so the order is kept.
+
+## Chunk transfer
+
+CHUNK_STORE and CHUNK_DATA are the same layout, only the meaning differs: CHUNK_STORE is saved by the receiver as its own copy, CHUNK_DATA is the answer to a CHUNK_REQUEST.
+
+- A chunk is at most CHUNK_SIZE (16 KB) and is cut into fragments of FRAGMENT_SIZE (1024 bytes). A full chunk is 16 fragments, the last chunk of a file may be shorter and have fewer.
+- `frag_count = ceil(chunk_length / 1024)`. Fragment `k` carries bytes `[k * 1024, k * 1024 + len)` of the chunk.
+- Every fragment carries the same `chunk_crc32`, the crc32 of the whole chunk.
+- The receiver collects all fragments, rebuilds the chunk and checks the crc32. On a mismatch it discards the chunk.
+- After saving a CHUNK_STORE chunk the holder sends HAVE to every peer. The owner treats that HAVE as the confirmation. No HAVE after CHUNK_TIMEOUT_MS means the owner retries, or picks another holder.
+- A CHUNK_REQUEST for a chunk the peer does not have is answered with CHUNK_ERR.
 
 ## Reliability rules
 
@@ -44,20 +89,36 @@ Exact payload layouts are filled in when each module is written.
 - The receiver ACKs every reliable packet, including duplicates (the earlier ACK may have been lost).
 - Per (sender, stream) the receiver delivers in seq order, buffers early packets, drops duplicates.
 - Sender keeps at most 16 unacked packets per (receiver, stream).
+- ACKs are per packet (selective): ACK n means "I have exactly packet n", not "everything up to n". An early packet is ACKed and buffered, the sender resends only what stays unacked.
+- Unreliable packets (flag 0: DISCOVER, HEARTBEAT, ACK) use seq 0 and take no part in ordering, duplicate checks or ACKs. Otherwise one lost heartbeat would leave a gap that blocks every later chat message.
+- The receiver decides by the RELIABLE flag. A reliable packet with seq 0 is invalid and dropped.
 
 ## Sequences
 
 Join:
 
     new -> bootstrap : JOIN
-    bootstrap -> new : WELCOME (peers, files, chunk map)
-    new -> every peer: JOIN              (so all learn about it)
+    bootstrap -> new : WELCOME (peer list, number of files)
+    bootstrap -> new : FILE_ANNOUNCE, one per file
+    bootstrap -> new : HAVE_MAP, one per (file, peer that holds chunks)
+    new -> every other peer : JOIN       (so all learn about it)
     peers -> new     : HEARTBEAT from now on
+
+Join sync (new peer takes its share of chunks):
+
+    new -> holders : CHUNK_REQUEST, then CHUNK_DATA back, until it holds its fair share
+    new -> every peer : HAVE for each chunk it saved
 
 Chat:
 
     sender -> each peer : CHAT (stream 0, seq n)
     peer -> sender      : ACK n
+
+Sharing a file (owner):
+
+    owner -> everyone : FILE_ANNOUNCE
+    owner -> each of the 2 holders of chunk i : CHUNK_STORE x frag_count   (stream 1)
+    holder -> everyone : HAVE (after crc32 check and save)
 
 Download of one chunk:
 

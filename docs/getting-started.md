@@ -4,7 +4,7 @@
 
 1. Install a compiler and CMake.
    - Linux: `sudo apt install build-essential cmake git`
-   - Windows: Git, CMake, and either Visual Studio (Desktop C++ workload) or MSYS2/MinGW. The whole team uses the same one, decide together.
+   - Windows: Git, CMake, and Visual Studio 2022 (Desktop C++ workload).
 2. Clone the repo.
 3. Set your own git identity, so commits show who did what:
 

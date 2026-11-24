@@ -53,3 +53,33 @@ Bad:
 8. Everyone pulls `main` again before starting the next task.
 
 Keep PRs small, one task each, so reviews take minutes. Open a PR as soon as a task works, not at the end of the week.
+
+## Agreed conventions
+
+Decisions that are already made. Code and docs must follow them. To change one, tell the whole group.
+
+### Toolchain
+
+- Linux: g++ (C++17) with CMake.
+- Windows: Visual Studio 2022 (MSVC) with CMake.
+- The compilers differ, so build before every PR and fix warnings and errors that show up on either one. A teammate on the other OS may find problems you cannot see.
+- Use Release for the demo and for every measurement in the report.
+
+### Types
+
+- File id, chunk index and peer id are `uint32_t`.
+- Sizes of files are `uint64_t`.
+- Strings in packets: `u16` length followed by the bytes, no terminating zero.
+- All numbers on the wire are big endian.
+
+### Protocol rules
+
+- ACK payload is only the `u32` acked seq. The stream comes from the ACK's own header.
+- ACKs are per packet, not cumulative.
+- Unreliable packets (DISCOVER, HEARTBEAT, ACK) use `seq = 0`. Reliable seqs start at 1.
+- Header `length` is the payload size only. Packet size is `HEADER_SIZE + length`.
+
+### Storage
+
+- Chunks are saved on disk as `peer_data/<name>/<file_id>/<index>.chk`.
+- `choose_holders` picks `REPLICATION` consecutive peers from the sorted peer id list, starting at `(file_id + index) % n`. It is only for the first placement. After peers join or leave, use `ChunkMap`, never recompute.
