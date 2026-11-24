@@ -13,7 +13,7 @@ All integers are big endian (network byte order). Max datagram = 14 + 1024 bytes
 | 2 | 1 | stream | 0 = control and chat, 1 = file data |
 | 3 | 1 | flags | bit 0 = RELIABLE (receiver must ACK), others 0 |
 | 4 | 4 | sender_id | id of the sending peer |
-| 8 | 4 | seq | sequence number, counted per (receiver, stream) |
+| 8 | 4 | seq | sequence number, counted per (receiver, stream), starts at 1. Unreliable packets use 0 |
 | 12 | 2 | length | payload length in bytes |
 
 Packets with a wrong version or a length that does not match are dropped.
@@ -28,7 +28,7 @@ Packets with a wrong version or a length that does not match are dropped.
 | 0x04 | HEARTBEAT | no | nothing |
 | 0x05 | LEAVE | yes | nothing |
 | 0x06 | CHAT | yes | text (private message adds target id) |
-| 0x07 | ACK | no | stream, acked seq |
+| 0x07 | ACK | no | u32 acked seq (the stream is the ACK's own header stream) |
 | 0x08 | FILE_ANNOUNCE | yes | file id, name, size, chunk count, file crc32 |
 | 0x09 | CHUNK_STORE | yes | file id, chunk index, data (owner pushes a chunk to a holder) |
 | 0x0A | HAVE | yes | file id, chunk index (peer says it now holds this chunk) |
@@ -44,6 +44,9 @@ Exact payload layouts are filled in when each module is written.
 - The receiver ACKs every reliable packet, including duplicates (the earlier ACK may have been lost).
 - Per (sender, stream) the receiver delivers in seq order, buffers early packets, drops duplicates.
 - Sender keeps at most 16 unacked packets per (receiver, stream).
+- ACKs are per packet (selective): ACK n means "I have exactly packet n", not "everything up to n". An early packet is ACKed and buffered, the sender resends only what stays unacked.
+- Unreliable packets (flag 0: DISCOVER, HEARTBEAT, ACK) use seq 0 and take no part in ordering, duplicate checks or ACKs. Otherwise one lost heartbeat would leave a gap that blocks every later chat message.
+- The receiver decides by the RELIABLE flag. A reliable packet with seq 0 is invalid and dropped.
 
 ## Sequences
 
