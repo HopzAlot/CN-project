@@ -92,6 +92,29 @@ CHUNK_STORE and CHUNK_DATA are the same layout, only the meaning differs: CHUNK_
 - ACKs are per packet (selective): ACK n means "I have exactly packet n", not "everything up to n". An early packet is ACKed and buffered, the sender resends only what stays unacked.
 - Unreliable packets (flag 0: DISCOVER, HEARTBEAT, ACK) use seq 0 and take no part in ordering, duplicate checks or ACKs. Otherwise one lost heartbeat would leave a gap that blocks every later chat message.
 - The receiver decides by the RELIABLE flag. A reliable packet with seq 0 is invalid and dropped.
+- Reorder buffer is bounded: per (sender, stream) the receiver accepts only seq in `[expected, expected + WINDOW_SIZE)` and drops anything outside it.
+
+### JOIN resets transport state
+
+Seq numbers are per (peer, stream). If one side forgot a peer (timeout) and the other did not, the new seq 1 looks like an old duplicate and is dropped. So a JOIN always means a fresh start:
+
+- A peer that **sends** a JOIN to X wipes all its send and receive state for X (both streams) first, so its seq to X starts again at 1.
+- A peer that **receives** a JOIN from X wipes all its send and receive state for X (both streams) before processing the JOIN, whatever the JOIN's seq was.
+
+The `sender_id` is not changed on rejoin, because chunk ownership (`ChunkMap`, HAVE) is tied to it.
+
+## Limits
+
+A payload never spans two packets, so every message must fit in MAX_PAYLOAD (1100 bytes).
+
+| Limit | Value | Why |
+|---|---|---|
+| Peers in WELCOME | about 49 | 4 bytes of counts, then 12 + name length per peer (22 bytes for a 10 character name): (1100 - 4) / 22 |
+| Chat text | 1000 bytes | CHAT payload is 4 (target_id) + 2 (length) + text |
+| File size | about 136 MiB (8736 chunks) | HAVE_MAP has 8 fixed bytes, so the bitmap is at most 1092 bytes = 8736 bits, times CHUNK_SIZE (16 KB) |
+| File name | keep short (under 255 bytes) | FILE_ANNOUNCE must fit in one packet |
+
+Senders must check these limits before sending. Receivers drop a packet whose payload does not parse.
 
 ## Sequences
 
