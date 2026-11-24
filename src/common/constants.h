@@ -15,6 +15,7 @@
 #define WINDOW_SIZE        16      // unacked packets allowed per peer/stream
 #define RTO_MS             200     // retransmit timeout
 #define MAX_RETRIES        10
+#define SEND_QUEUE_LIMIT   4096    // messages waiting for window space per peer and stream, then send fails
 
 #define HEARTBEAT_MS       1000
 #define PEER_TIMEOUT_MS    5000
