@@ -18,6 +18,26 @@ Windows (Visual Studio or MSYS2/MinGW, with CMake installed):
     cmake --build build --config Release
     build\Release\peer.exe        (MSVC)   or   build\peer.exe   (MinGW)
 
+## Debug and Release
+
+The same code can be compiled two ways.
+
+- **Debug**: no optimization, extra info for the debugger. Slow, but you can step through code and set breakpoints. Use it while developing.
+- **Release**: optimized and fast. Use it for the demo and for **every measurement in the report**. Numbers from a Debug build are not realistic.
+
+Linux / MinGW (pick the type when configuring):
+
+    cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
+    cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+
+Visual Studio (pick the type when building):
+
+    cmake --build build --config Debug
+    cmake --build build --config Release
+
+In VS Code with the CMake Tools extension, choose the type from the bar at the bottom.
+If you switch types on Linux/MinGW, delete `build/` first or use a separate folder like `build-release/`.
+
 ## Why CMake
 
 Half the team is on Linux and half on Windows. Each has a different compiler
