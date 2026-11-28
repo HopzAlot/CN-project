@@ -46,6 +46,14 @@ std::vector<uint32_t> ChunkMap::holders(uint32_t file_id, uint32_t index) const 
     return it->second;
 }
 
+std::vector<std::pair<uint32_t, uint32_t>> ChunkMap::all_chunks() const {
+    std::lock_guard<std::mutex> lock(mtx_);
+    std::vector<std::pair<uint32_t, uint32_t>> out;
+    out.reserve(map_.size());
+    for (const auto& kv : map_) out.push_back(kv.first);    // std::map keeps them sorted
+    return out;
+}
+
 void ChunkMap::apply_bitmap(uint32_t file_id, uint32_t peer_id, uint32_t chunk_count,
                             const std::vector<uint8_t>& bitmap) {
     for (uint32_t i = 0; i < chunk_count; i++) {
